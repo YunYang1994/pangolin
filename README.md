@@ -10,6 +10,9 @@
 	* (mac) `sudo port install glew`
 * pybind11
 	* `sudo python -mpip install numpy pyopengl Pillow pybind11`
+* eigen
+	* (linux) `sudo apt-get install libeigen3-dev`
+	* (mac) `brew install eigen`
 
 ## Installation
 Pangolin uses the CMake portable pre-build tool. To checkout and build pangolin in the directory 'build', execute the following at a shell (or the equivelent using a GUI):
