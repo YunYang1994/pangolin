@@ -17,10 +17,10 @@ from distutils.sysconfig import get_python_lib
 import glob
 import shutil
 
-
-__library_file__ = './build/src/pypangolin*.so'
 __version__ = '1.0.0'
 
+__so_file__    = './build/src/pypangolin*.so'
+__dylib_file__ = './build/src/libpangolin.dylib'
 
 
 class CopyLibFile(install):
@@ -31,11 +31,17 @@ class CopyLibFile(install):
     def run(self):
         install_dir = get_python_lib()
         print(install_dir)
-        lib_file = glob.glob(__library_file__)
+        lib_file = glob.glob(__so_file__)
+        dylib_file = glob.glob(__dylib_file__)
         assert len(lib_file) == 1 and len(install_dir) >= 1
 
         print('copying {} -> {}'.format(lib_file[0], install_dir))
         shutil.copy(lib_file[0], install_dir)
+
+        if len(dylib_file) > 0:
+            print('copying {} -> {}'.format(dylib_file[0], install_dir))
+            shutil.copy(dylib_file[0], install_dir)
+
 
 
 setup(
