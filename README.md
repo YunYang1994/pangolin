@@ -1,5 +1,3 @@
-![image](python/examples/imgs/SPTAM_PointCloud.png)
-
 ## About pangolin
 [Pangolin](https://github.com/stevenlovegrove/Pangolin) is a lightweight portable rapid development library for managing OpenGL display / interaction and abstracting video input.  For convenience,  I start up a project implements a python binding for 3D visualization library Pangolin. 
 
@@ -32,3 +30,6 @@ $ python setup.py install
 
 ## Example gallery
 
+We have provided many exmaples of useage [here](https://github.com/YunYang1994/pangolin/tree/main/python/examples), enjoy it ! 
+
+![image](python/examples/imgs/SPTAM_PointCloud.png)
