@@ -1,5 +1,5 @@
 ## About pangolin
-[Pangolin](https://github.com/stevenlovegrove/Pangolin) is a lightweight portable rapid development library for managing OpenGL display / interaction and abstracting video input.  For convenience,  I start up a project implements a python binding for 3D visualization library Pangolin. 
+[Pangolin](https://github.com/stevenlovegrove/Pangolin) is a lightweight portable rapid development library for managing OpenGL display / interaction and interaction.  For convenience,  I start up a project to implement a python binding for 3D visualization library Pangolin. 
 
 ## Required dependencies
 
