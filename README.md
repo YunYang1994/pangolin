@@ -7,7 +7,7 @@
 	* (linux) `sudo apt install libgl1-mesa-dev`
 * Glew
 	* (linux) `sudo apt install libglew-dev`
-	* (mac) `sudo port install glew`
+	* (mac) `brew install glew`
 * pybind11
 	* `sudo python -mpip install numpy pyopengl Pillow pybind11`
 * eigen

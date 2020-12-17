@@ -37,7 +37,7 @@ namespace pangolin
 class PANGOLIN_EXPORT ImagesVideoOutput : public VideoOutputInterface
 {
 public:
-    ImagesVideoOutput(const std::string& image_folder, const std::string& json_file_out, const std::string &image_file_extension);
+    ImagesVideoOutput(const std::string& image_folder, const std::string& json_file_out);
     ~ImagesVideoOutput();
 
     const std::vector<StreamInfo>& Streams() const override;
@@ -53,7 +53,6 @@ protected:
 
     size_t image_index;
     std::string image_folder;
-    std::string image_file_extension;
     std::ofstream file;
 };
 

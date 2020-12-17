@@ -5,13 +5,4 @@ if(BUILD_PANGOLIN_GUI AND BUILD_PANGOLIN_VARS )
       add_subdirectory(VideoJson)
       add_subdirectory(Plotter)
   endif()
-
-  option(BUILD_PANGOLIN_EIGEN "Build support for Eigen matrix types" ON)
-  if(BUILD_PANGOLIN_EIGEN)
-      find_package(Eigen QUIET)
-      if(EIGEN_FOUND)
-          add_subdirectory(ModelViewer)
-      endif()
-  endif()
-
 endif()

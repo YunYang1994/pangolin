@@ -59,7 +59,7 @@ void VideoSample(const std::string uri)
         vVideo.Activate();
         texVideo.RenderToViewportFlipY();
 
-        // Swap back buffer with front and process window events
+        // Swap back buffer with front and process window events via GLUT
         pangolin::FinishFrame();
     }
 
@@ -103,7 +103,7 @@ int main( int argc, char* argv[] )
                 std::cout << "Trying: " << uris[i] << std::endl;
                 VideoSample(uris[i]);
                 return 0;
-            }catch(const pangolin::VideoException&) { }
+            }catch(pangolin::VideoException) { }
         }
     }
 

@@ -68,12 +68,8 @@ size_t PacketStream::read(char* target, size_t len)
 
 size_t PacketStream::skip(size_t len)
 {
-    if (seekable()) {
-        Base::seekg(len, std::ios_base::cur);
-    } else {
-        Base::ignore(len);
-    }
-    cclear();
+    ignore(len);
+    _tag = 0;
     return len;
 }
 

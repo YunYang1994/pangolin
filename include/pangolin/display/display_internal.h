@@ -114,10 +114,6 @@ struct PANGOLIN_EXPORT PangolinGl : public WindowInterface
         pango_print_warn("MakeCurrent: Not available with non-pangolin window.\n");
     }
 
-    virtual void RemoveCurrent() override {
-        pango_print_warn("RemoveCurrent: Not available with non-pangolin window.\n");
-    }
-
     virtual void Move(int /*x*/, int /*y*/) override {
         pango_print_warn("Move: Not available with non-pangolin window.\n");
     }
@@ -130,7 +126,7 @@ struct PANGOLIN_EXPORT PangolinGl : public WindowInterface
 };
 
 PangolinGl* GetCurrentContext();
-void RegisterNewContext(const std::string& name, std::shared_ptr<PangolinGl> newcontext);
+void AddNewContext(const std::string& name, std::shared_ptr<PangolinGl> newcontext);
 void DeleteContext(const std::string& name);
 PangolinGl *FindContext(const std::string& name);
 

@@ -105,6 +105,7 @@ public:
     const guid_t guid;
     std::weak_ptr<Renderable> parent;
     pangolin::OpenGlMatrix T_pc;
+    std::shared_ptr<Renderable> child;
     bool should_show;
 
     // Children

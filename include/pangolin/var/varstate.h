@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <memory>
 #include <map>
 #include <vector>
 #include <pangolin/platform.h>
@@ -81,6 +82,7 @@ public:
     }
 
     VarValueGeneric*& operator[](const std::string& str)
+    //std::shared_ptr<VarValueGeneric>& operator[](const std::string& str)
     {
         VarStoreContainer::iterator it = vars.find(str);
         if (it == vars.end()) {
@@ -108,6 +110,7 @@ public:
 
 //protected:
     typedef std::map<std::string, VarValueGeneric*> VarStoreContainer;
+    //typedef std::map<std::string, std::shared_ptr<VarValueGeneric>> VarStoreContainer;
     typedef std::vector<std::string> VarStoreAdditions;
 
     VarStoreContainer vars;

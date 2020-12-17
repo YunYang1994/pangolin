@@ -28,7 +28,6 @@
 #pragma once
 
 #include <pangolin/pangolin.h>
-#include <pangolin/video/iostream_operators.h>
 #include <pangolin/video/video.h>
 
 #include <thread>

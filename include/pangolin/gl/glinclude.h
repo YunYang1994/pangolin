@@ -37,10 +37,10 @@
 namespace pangolin {
 inline void _CheckGlDieOnError( const char *sFile, const int nLine )
 {
-    const GLenum glError = glGetError();
+    GLenum glError = glGetError();
     if( glError != GL_NO_ERROR ) {
-        pango_print_error("OpenGL Error %x: %s\n", glError, glErrorString(glError));
-        pango_print_error("In: %s, line %d\n", sFile, nLine);
+        pango_print_error( "OpenGL Error: %s (%d)\n", glErrorString(glError), glError );
+		pango_print_error("In: %s, line %d\n", sFile, nLine);
     }
 }
 }

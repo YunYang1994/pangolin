@@ -41,9 +41,8 @@ struct PANGOLIN_EXPORT PixelFormat
     
     std::string  format;
     unsigned int channels;
-    unsigned int channel_bits[4]; //Of the data type
-    unsigned int bpp; //Of the data type
-    unsigned int channel_bit_depth; //Of the data
+    unsigned int channel_bits[4];
+    unsigned int bpp;
     bool planar;
 };
 

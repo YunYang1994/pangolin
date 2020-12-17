@@ -54,8 +54,6 @@ struct OsxWindow : public PangolinGl
 
     void MakeCurrent() override;
 
-    void RemoveCurrent() override;
-
     void SwapBuffers() override;
 
     void ProcessEvents() override;

@@ -15,18 +15,16 @@ set( HEADERS
 append_glob(HEADERS ${INCDIR}/utils/*.h*)
 append_glob(HEADERS ${INCDIR}/image/*.h*)
 append_glob(HEADERS ${INCDIR}/log/*.h*)
-append_glob(HEADERS ${INCDIR}/geometry/*.h*)
 
 ### Store list of source files
 append_glob(SOURCES utils/*.cpp)
 append_glob(SOURCES image/*.cpp)
 append_glob(SOURCES log/*.cpp)
-append_glob(SOURCES geometry/*.cpp)
+
 
 ### Store list of Video factory registery methods to call for init.
 include(CreateMethodCallFile)
 set( VIDEO_FACTORY_REG "" )
-set( WINDOW_FACTORY_REG "" )
 
 #######################################################
 ## User build options
@@ -71,7 +69,6 @@ if(BUILD_PANGOLIN_VIDEO)
     ${INCDIR}/video/drivers/images.h
     ${INCDIR}/video/drivers/images_out.h
     ${INCDIR}/video/drivers/split.h
-    ${INCDIR}/video/drivers/truncate.h
     ${INCDIR}/video/drivers/pvn.h
     ${INCDIR}/video/drivers/pango.h
     ${INCDIR}/video/drivers/pango_video_output.h
@@ -79,7 +76,6 @@ if(BUILD_PANGOLIN_VIDEO)
     ${INCDIR}/video/drivers/shift.h
     ${INCDIR}/video/drivers/mirror.h
     ${INCDIR}/video/drivers/unpack.h
-    ${INCDIR}/video/drivers/pack.h
     ${INCDIR}/video/drivers/join.h
     ${INCDIR}/video/drivers/merge.h
     ${INCDIR}/video/drivers/thread.h
@@ -89,7 +85,6 @@ if(BUILD_PANGOLIN_VIDEO)
     video/drivers/images.cpp
     video/drivers/images_out.cpp
     video/drivers/split.cpp
-    video/drivers/truncate.cpp
     video/drivers/pvn.cpp
     video/drivers/pango.cpp
     video/drivers/pango_video_output.cpp
@@ -97,7 +92,6 @@ if(BUILD_PANGOLIN_VIDEO)
     video/drivers/shift.cpp
     video/drivers/mirror.cpp
     video/drivers/unpack.cpp
-    video/drivers/pack.cpp
     video/drivers/join.cpp
     video/drivers/merge.cpp
     video/drivers/json.cpp
@@ -109,7 +103,6 @@ if(BUILD_PANGOLIN_VIDEO)
     RegisterImagesVideoFactory
     RegisterImagesVideoOutputFactory
     RegisterSplitVideoFactory
-    RegisterTruncateVideoFactory
     RegisterPvnVideoFactory
     RegisterPangoVideoFactory
     RegisterPangoVideoOutputFactory
@@ -117,14 +110,13 @@ if(BUILD_PANGOLIN_VIDEO)
     RegisterShiftVideoFactory
     RegisterMirrorVideoFactory
     RegisterUnpackVideoFactory
-    RegisterPackVideoFactory
     RegisterJoinVideoFactory
     RegisterMergeVideoFactory
     RegisterJsonVideoFactory
     RegisterThreadVideoFactory
   )
 
-  if(_LINUX_)
+  if(LINUX)
     list(APPEND HEADERS ${INCDIR}/video/drivers/shared_memory.h)
     list(APPEND SOURCES video/drivers/shared_memory.cpp)
     # Required for shared memory API using some versions of glibc
@@ -138,22 +130,17 @@ if(BUILD_PANGOLIN_GUI AND BUILD_PANGOLIN_VARS AND BUILD_PANGOLIN_VIDEO )
     list(APPEND SOURCES tools/video_viewer.cpp)
 endif()
 
-if(_LINUX_)
-    set(OpenGL_GL_PREFERENCE "GLVND")
-endif()
-
 #######################################################
 ## Setup required includes / link info
 
-option(DISPLAY_X11 "X11 Window Interface" ON)
-option(DISPLAY_WAYLAND "Wayland Window Interface" OFF)
+# Project headers trump everything (including any potentially installed Pangolin)
+list(APPEND LIB_INC_DIR  "${PROJECT_SOURCE_DIR}/include;${CMAKE_CURRENT_BINARY_DIR}/include" )
 
 if(BUILD_PANGOLIN_GUI)
     if( ANDROID  )
         # Android specific display code
         list(APPEND HEADERS ${INCDIR}/display/device/display_android.h )
         list(APPEND SOURCES display/device/display_android.cpp )
-        list(APPEND WINDOW_FACTORY_REG RegisterAndroidWindowFactory)
 
         if(HAVE_GLES_2)
             list(APPEND LINK_LIBS "-lEGL;-lGLESv2" )
@@ -164,31 +151,25 @@ if(BUILD_PANGOLIN_GUI)
         list(APPEND LINK_LIBS "-framework OpenGLES" )
         list(APPEND HEADERS "${INCDIR}/ios/PangolinAppDelegate.h" "${INCDIR}/ios/PangolinViewController.h" )
         list(APPEND SOURCES "ios/PangolinAppDelegate.mm" "ios/PangolinViewController.mm" )
-        list(APPEND WINDOW_FACTORY_REG RegisterIosWindowFactory)
     else()
-        find_package(OpenGL REQUIRED)
-        list(APPEND USER_INC  ${OPENGL_INCLUDE_DIR})
-        list(APPEND LINK_LIBS ${OPENGL_LIBRARIES})
+        find_package(OpenGL REQUIRED QUIET)
+        list(APPEND USER_INC  "${OPENGL_INCLUDE_DIR}" )
+        list(APPEND LINK_LIBS "${OPENGL_LIBRARIES}" )
 
         if(NOT BUILD_EXTERN_GLEW)
-            find_package(GLEW REQUIRED)
+            find_package(GLEW REQUIRED QUIET)
         endif()
-        list(APPEND USER_INC  ${GLEW_INCLUDE_DIR})
-        list(APPEND LINK_LIBS ${GLEW_LIBRARY})
+        if(GLEW_FOUND)
+            list(APPEND USER_INC  "${GLEW_INCLUDE_DIR}" )
+            list(APPEND LINK_LIBS "${GLEW_LIBRARY}" )
+            set(HAVE_GLEW 1)
+        endif()
     endif()
 
     if( HAVE_GLES_2 )
         # Add Pangolins backwards compat layer.
         list(APPEND HEADERS ${INCDIR}/gl2engine.h )
         list(APPEND SOURCES gl2engine.cpp)
-    endif()
-
-    # headless offscreen rendering via EGL
-    find_package(OpenGL QUIET COMPONENTS EGL)
-    if(OpenGL_EGL_FOUND)
-        list(APPEND WINDOW_FACTORY_REG RegisterNoneWindowFactory)
-        list(APPEND SOURCES display/device/display_headless.cpp)
-        list(APPEND LINK_LIBS ${OPENGL_egl_LIBRARY} )
     endif()
 endif()
 
@@ -203,78 +184,53 @@ elseif(IOS)
     # Nothing specific in here yet.
 else()
     if(BUILD_PANGOLIN_GUI)
-        if(_WIN_)
-            list(APPEND WINDOW_FACTORY_REG RegisterWinWindowFactory)
+        if(FORCE_GLUT)
+            find_package(FREEGLUT QUIET)
+            find_package(GLUT QUIET)
+
+            if(_OSX_)
+              INCLUDE(CheckCXXSourceRuns)
+              set(CMAKE_REQUIRED_LIBRARIES ${GLUT_LIBRARY})
+              CHECK_CXX_SOURCE_RUNS("#include <GLUT/glut.h>\n int main () {return glutGetProcAddress(\"glutScrollFunc\") ? 0 : -1;};" HAVE_MODIFIED_OSXGLUT)
+              if(NOT HAVE_MODIFIED_OSXGLUT)
+                    message(STATUS "Install modified osxglut for smooth scroll support / pinch / zoom.")
+                    message(STATUS "(https://github.com/stevenlovegrove/osxglut)")
+              endif()
+            endif()
+
+            # Prefer OSX_MODIFIED_GLUT > FREEGLUT > GLUT
+            if(FREEGLUT_FOUND AND NOT HAVE_MODIFIED_OSXGLUT)
+              set(HAVE_FREEGLUT 1)
+              list(APPEND USER_INC  ${FREEGLUT_INCLUDE_DIR} )
+              list(APPEND LINK_LIBS ${FREEGLUT_LIBRARY} )
+            elseif(GLUT_FOUND)
+              list(APPEND USER_INC  ${GLUT_INCLUDE_DIR} )
+              list(APPEND LINK_LIBS ${GLUT_LIBRARY} )
+              if(_OSX_)
+                set(HAVE_APPLE_OPENGL_FRAMEWORK 1)
+                if(NOT HAVE_MODIFIED_OSXGLUT)
+                    message(STATUS "Using Apple Framework GLUT.")
+                    message(STATUS "Install Freeglut or modified osxglut for scroll support.")
+                endif()
+              endif()
+            endif()
+
+            if(FREEGLUT_FOUND OR GLUT_FOUND)
+                set(HAVE_GLUT 1)
+                list(APPEND HEADERS ${INCDIR}/display/device/display_glut.h )
+                list(APPEND SOURCES display/device/display_glut.cpp )
+                message(STATUS "Glut Found and Enabled")
+            endif()
+        elseif(_WIN_)
             list(APPEND SOURCES display/device/display_win.cpp )
         elseif(_OSX_)
-            list(APPEND WINDOW_FACTORY_REG RegisterOsxWindowFactory)
             list(APPEND SOURCES display/device/display_osx.mm display/device/PangolinNSApplication.mm display/device/PangolinNSGLView.mm  )
             list(APPEND LINK_LIBS "-framework Cocoa" )
         elseif(_LINUX_)
-            # Wayland
-            if(DISPLAY_WAYLAND)
-                find_package(Wayland QUIET)
-                if(WAYLAND_CLIENT_FOUND)
-                    find_package(Wayland REQUIRED)
-                    find_package(PkgConfig)
-                    pkg_check_modules(xkbcommon REQUIRED xkbcommon)
-                    pkg_check_modules(egl QUIET egl)
-
-                    # find Wayland protocols
-                    pkg_get_variable(WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
-
-                    # generate header for protocol 'xdg_shell'
-                    set(XDG_PROT_DEF "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml")
-                    if(EXISTS ${XDG_PROT_DEF})
-                        # use the 'xdg_shell' protocol
-                        add_definitions(-DUSE_WL_XDG=1)
-
-                        # find 'wayland-scanner' executable
-                        pkg_get_variable(WAYLAND_SCANNER wayland-scanner wayland_scanner)
-
-                        # generate protocol implementation
-                        add_custom_command(
-                            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
-                            COMMAND ${WAYLAND_SCANNER} client-header ${XDG_PROT_DEF} xdg-shell-client-protocol.h)
-                        add_custom_command(
-                            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c
-                            COMMAND ${WAYLAND_SCANNER} private-code ${XDG_PROT_DEF} xdg-shell-protocol.c
-                            DEPENDS xdg-shell-client-protocol.h)
-                        include_directories(${CMAKE_CURRENT_BINARY_DIR})
-                        list(APPEND SOURCES xdg-shell-protocol.c)
-
-                    else()
-                        # use deprecated 'wl_shell' interface
-                        add_definitions(-DUSE_WL_XDG=0)
-                    endif()
-
-                    list(APPEND WINDOW_FACTORY_REG RegisterWaylandWindowFactory)
-                    list(APPEND SOURCES display/device/display_wayland.cpp)
-                    list(APPEND LINK_LIBS
-                        ${WAYLAND_CLIENT_LIBRARIES}
-                        ${WAYLAND_EGL_LIBRARIES}
-                        ${WAYLAND_CURSOR_LIBRARIES}
-                        ${egl_LIBRARIES}
-                        ${xkbcommon_LIBRARIES}
-                    )
-                    list(APPEND INTERNAL_INC
-                        ${WAYLAND_CLIENT_INCLUDE_DIR}
-                        ${WAYLAND_EGL_INCLUDE_DIR}
-                        ${WAYLAND_CURSOR_INCLUDE_DIR}
-                        ${egl_INCLUDE_DIRS}
-                        ${xkbcommon_INCLUDE_DIRS}
-                    )
-                endif()
-            endif()
-
-            # X11
-            find_package(X11 QUIET)
-            if(DISPLAY_X11 AND X11_FOUND)
-                list(APPEND WINDOW_FACTORY_REG RegisterX11WindowFactory)
-                list(APPEND USER_INC ${X11_INCLUDE_DIR})
-                list(APPEND SOURCES display/device/display_x11.cpp )
-                list(APPEND LINK_LIBS ${X11_LIBRARIES} )
-            endif()
+            find_package(X11 REQUIRED)
+            list(APPEND USER_INC ${X11_INCLUDE_DIR})
+            list(APPEND SOURCES display/device/display_x11.cpp )
+            list(APPEND LINK_LIBS ${X11_LIBRARIES} )
         endif()
     endif()
 endif()
@@ -290,46 +246,43 @@ endif()
 
 option(BUILD_PANGOLIN_PYTHON "Build support for Pangolin Interactive Console" ON)
 if(BUILD_PANGOLIN_PYTHON AND BUILD_PANGOLIN_GUI AND BUILD_PANGOLIN_VARS AND NOT _WIN_)
-  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../external/pybind11/CMakeLists.txt")
-      add_subdirectory("../external/pybind11" "${CMAKE_CURRENT_BINARY_DIR}/external/pybind11")
-      set( pybind11_FOUND true)
-  else()
-      find_package(pybind11 QUIET)
-  endif()
-
-  if(pybind11_FOUND)
+  find_package(PythonLibs QUIET)
+  if(PYTHONLIBS_FOUND)
     set(HAVE_PYTHON 1)
-
-    file(GLOB pypangolin_SRC "python/pypangolin/*.cpp" )
-    file(GLOB pypangolin_HDR "python/pypangolin/*.hpp" )
     list(APPEND HEADERS
         ${INCDIR}/console/ConsoleInterpreter.h
         ${INCDIR}/console/ConsoleView.h
-        ${INCDIR}/python/pyinterpreter.h
-        ${INCDIR}/python/pypangolin_init.h
-        ${INCDIR}/python/pyuniqueobj.h
-        ${INCDIR}/python/pyvar.h
-        ${INCDIR}/python/pypangoio.h
-        ${pypangolin_HDR}
+        ${INCDIR}/python/PyInterpreter.h
+        ${INCDIR}/python/PyModulePangolin.h
+        ${INCDIR}/python/PyUniqueObj.h
+        ${INCDIR}/python/PyVar.h
+        ${INCDIR}/python/PyPangoIO.h
     )
     list(APPEND SOURCES
         console/ConsoleView.cpp
-        python/pyinterpreter.cpp
-        python/pypangolin_init.cpp
-        ${pypangolin_SRC}
+        python/PyInterpreter.cpp
+        python/PyModulePangolin.cpp
     )
-
-    # pybind11 stuff
-    list(APPEND INTERNAL_INC ${PYBIND11_INCLUDE_DIR})
-    list(APPEND LINK_LIBS PRIVATE ${pybind11_LIBRARIES})
-
     if(_GCC_)
         set_source_files_properties(python/PyInterpreter.cpp    PROPERTIES COMPILE_FLAGS "-Wno-missing-field-initializers")
         set_source_files_properties(python/PyModulePangolin.cpp PROPERTIES COMPILE_FLAGS "-fno-strict-aliasing -Wno-missing-field-initializers")
     endif()
-    list(APPEND INTERNAL_INC ${PYTHON_INCLUDE_DIRS})
-    list(APPEND LINK_LIBS    ${PYTHON_LIBRARIES})
-    message(STATUS "Python Found and Enabled (with pybind11)")
+    list(APPEND INTERNAL_INC ${PYTHON_INCLUDE_DIR})
+    list(APPEND LINK_LIBS    ${PYTHON_LIBRARY})
+    message(STATUS "Python Found and Enabled")
+  endif()
+endif()
+
+option(BUILD_PANGOLIN_OCULUS "Build support for Oculus HUD" OFF)
+if(BUILD_PANGOLIN_OCULUS)
+  find_package(Oculus QUIET)
+  if(Oculus_FOUND)
+    set(HAVE_OCULUS 1)
+    list(APPEND HEADERS ${INCDIR}/hud/oculus_hud.h )
+    list(APPEND SOURCES hud/oculus_hud.cpp )
+    list(APPEND USER_INC ${Oculus_INCLUDE_DIRS} )
+    list(APPEND LINK_LIBS ${Oculus_LIBRARIES} )
+    message(STATUS "Oculus Rift Found and Enabled")
   endif()
 endif()
 
@@ -380,7 +333,7 @@ if(BUILD_PANGOLIN_V4L AND BUILD_PANGOLIN_VIDEO AND _LINUX_)
   message(STATUS "V4L Found and Enabled")
 endif()
 
-option(BUILD_PANGOLIN_FFMPEG "Build support for ffmpeg video input" ON)
+option(BUILD_PANGOLIN_FFMPEG "Build support for ffmpeg video input" OFF)
 if(BUILD_PANGOLIN_FFMPEG AND BUILD_PANGOLIN_VIDEO)
   find_package(FFMPEG QUIET)
   if(FFMPEG_FOUND)
@@ -411,20 +364,6 @@ if(BUILD_PANGOLIN_LIBREALSENSE AND BUILD_PANGOLIN_VIDEO)
     list(APPEND SOURCES video/drivers/realsense.cpp)
     list(APPEND VIDEO_FACTORY_REG RegisterRealSenseVideoFactory )
     message(STATUS "LibRealSense Found and Enabled")
-  endif()
-endif()
-
-option(BUILD_PANGOLIN_LIBREALSENSE2 "Build support for LibRealSense2 video input" ON)
-if(BUILD_PANGOLIN_LIBREALSENSE2 AND BUILD_PANGOLIN_VIDEO)
-  find_package(LibRealSense2 QUIET)
-  if(LIBREALSENSE2_FOUND)
-    set(HAVE_LIBREALSENSE2 1)
-    list(APPEND INTERNAL_INC  ${LIBREALSENSE2_INCLUDE_DIRS} )
-    list(APPEND LINK_LIBS ${LIBREALSENSE2_LIBRARIES} )
-    list(APPEND HEADERS ${INCDIR}/video/drivers/realsense2.h )
-    list(APPEND SOURCES video/drivers/realsense2.cpp)
-    list(APPEND VIDEO_FACTORY_REG RegisterRealSense2VideoFactory )
-    message(STATUS "LibRealSense2 Found and Enabled")
   endif()
 endif()
 
@@ -604,39 +543,25 @@ if(BUILD_PANGOLIN_ZSTD)
   endif()
 endif()
 
-option(BUILD_PANGOLIN_LZ4 "Build support for liblz4 compression" ON)
-if(BUILD_PANGOLIN_LZ4)
-  find_package(Lz4 QUIET)
-  if(Lz4_FOUND)
-    set(HAVE_LZ4 1)
-    list(APPEND INTERNAL_INC ${Lz4_INCLUDE_DIRS} )
-    list(APPEND LINK_LIBS ${Lz4_LIBRARIES} )
-    message(STATUS "liblz4 Found and Enabled")
-  endif()
-endif()
-
 #######################################################
 ## Embed resource binary files
 
 include(EmbedBinaryFiles)
 
 if(BUILD_PANGOLIN_GUI)
-    embed_binary_files( "_embed_/fonts/*.ttf" "${CMAKE_CURRENT_BINARY_DIR}/fonts.cpp" )
-    list(APPEND SOURCES "${CMAKE_CURRENT_BINARY_DIR}/fonts.cpp" )
+    embed_binary_files( "_embed_/fonts/*.ttf" "${CMAKE_CURRENT_BINARY_DIR}/fonts.c" )
+    list(APPEND SOURCES "${CMAKE_CURRENT_BINARY_DIR}/fonts.c" )
 endif()
 
 #######################################################
 ## Add Libraries / Include Directories / Link directories
 
-set(INSTALL_INCLUDE_DIR "include")
+include_directories( ${LIB_INC_DIR} )
+include_directories( ${USER_INC} )
+include_directories( ${INTERNAL_INC} )
 
-add_library(${LIBRARY_NAME} ${SOURCES} ${HEADERS})
-# 'System' includes shield us from warnings in those includes.
-target_include_directories(${LIBRARY_NAME} SYSTEM PUBLIC ${USER_INC} PRIVATE ${INTERNAL_INC})
-target_include_directories(${LIBRARY_NAME} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                                  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
-                                                  $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>)
-target_link_libraries(${LIBRARY_NAME} PUBLIC ${LINK_LIBS})
+add_library(${LIBRARY_NAME} STATIC ${SOURCES} ${HEADERS})    # modified for python binding (add "STATIC")
+target_link_libraries(${LIBRARY_NAME} ${LINK_LIBS})
 
 ## Generate symbol export helper header on MSVC
 IF(MSVC)
@@ -645,11 +570,11 @@ IF(MSVC)
     GENERATE_EXPORT_HEADER( ${LIBRARY_NAME}
         BASE_NAME ${LIBRARY_NAME_CAPS}
         EXPORT_MACRO_NAME ${LIBRARY_NAME_CAPS}_EXPORT
-        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/${LIBRARY_NAME}_export.h"
+        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/pangolin/${LIBRARY_NAME}_export.h" #
         STATIC_DEFINE ${LIBRARY_NAME_CAPS}_BUILT_AS_STATIC
     )
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/${LIBRARY_NAME}_export.h"
-      DESTINATION ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_DIR}/${LIBRARY_NAME}
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/pangolin/${LIBRARY_NAME}_export.h" #
+      DESTINATION ${CMAKE_INSTALL_PREFIX}/include/${LIBRARY_NAME}
     )
 ENDIF()
 
@@ -665,7 +590,8 @@ endif()
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/config.h"
+  #"${CMAKE_CURRENT_BINARY_DIR}/include/pangolin/config.h"  #
+  "${PROJECT_SOURCE_DIR}/include/pangolin/config.h"
 )
 
 #######################################################
@@ -673,37 +599,17 @@ configure_file(
 ## This loads video driver factories based on cmake configuration
 
 CreateMethodCallFile(
-    "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/video_drivers.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/include/pangolin/video_drivers.h"  #
     "pangolin" "LoadBuiltInVideoDrivers" "${VIDEO_FACTORY_REG}"
 )
 
 #######################################################
-## Create window_frameworks.h file for inclusion in library
-## This loads windowing framwork factories based on cmake configuration
-
-CreateMethodCallFile(
-    "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/window_frameworks.h"
-    "pangolin" "LoadBuiltInWindowFrameworks" "${WINDOW_FACTORY_REG}"
-)
-
-#######################################################
-## Python wrapper
-
-option(BUILD_PYPANGOLIN_MODULE "Python wrapper for Pangolin" ON)
-if(BUILD_PYPANGOLIN_MODULE AND HAVE_PYTHON )
-    file(GLOB pypangolin_SRC "python/pypangolin/*.hpp" "python/pypangolin/*.cpp" "python/pypangolin_module.cpp")
-    pybind11_add_module(pypangolin ${pypangolin_SRC})
-    target_link_libraries(pypangolin PRIVATE ${LIBRARY_NAME})
-    target_include_directories(pypangolin PRIVATE "${USER_INC}")
-endif()
-
-#######################################################
-## Generate Doxygen documentation target (make pangolin_doc)
+## Generate Doxygen documentation target (make doc)
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../doc )
-    add_custom_target(pangolin_doc
+    add_custom_target(doc
         ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../doc
         COMMENT "Generating API documentation with Doxygen" VERBATIM
@@ -716,7 +622,7 @@ endif()
 set( CMAKECONFIG_INSTALL_DIR lib/cmake/${PROJECT_NAME} )
 file( RELATIVE_PATH REL_INCLUDE_DIR
     "${CMAKE_INSTALL_PREFIX}/${CMAKECONFIG_INSTALL_DIR}"
-    "${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_DIR}"
+    "${CMAKE_INSTALL_PREFIX}/include"
 )
 
 # Export library for easy inclusion from other cmake projects. APPEND allows
@@ -730,7 +636,7 @@ configure_file(${PROJECT_NAME}ConfigVersion.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake" @ONLY)
 
 # Build tree config
-set( EXPORT_LIB_INC_DIR "${PROJECT_SOURCE_DIR}/include;${CMAKE_CURRENT_BINARY_DIR}/include" )
+set( EXPORT_LIB_INC_DIR ${LIB_INC_DIR} )
 configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}Config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake @ONLY IMMEDIATE )
 
@@ -750,11 +656,11 @@ endif()
 #######################################################
 ## Install headers / targets
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/config.h"
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_DIR}/${LIBRARY_NAME}
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/${LIBRARY_NAME}/config.h"  #
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include/${LIBRARY_NAME}
 )
 install(DIRECTORY ${INCDIR}
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/${INSTALL_INCLUDE_DIR}
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include
 )
 install(TARGETS ${LIBRARY_NAME}
   EXPORT ${PROJECT_NAME}Targets

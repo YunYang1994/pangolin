@@ -74,19 +74,15 @@ public:
     //! Implement VideoUvcInterface::IoCtrl()
     int IoCtrl(uint8_t unit, uint8_t ctrl, unsigned char* data, int len, UvcRequestCode req_code);
 
-    bool GetExposure(int& exp_us);
+    void SetExposureUs(int exposure_us);
 
-    bool SetExposure(int exp_us);
-
-    bool GetGain(float& gain);
-
-    bool SetGain(float gain);
+    void SetGain(double gain);
 
     int GetFileDescriptor() const{
         return fd;
     }
 
-    //! Access JSON properties of device
+        //! Access JSON properties of device
     const picojson::value& DeviceProperties() const;
 
     //! Access JSON properties of most recently captured frame

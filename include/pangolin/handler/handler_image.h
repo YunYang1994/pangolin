@@ -83,8 +83,6 @@ public:
 
     bool& UseNN();
 
-    bool& FlipTextureX();
-
     bool& FlipTextureY();
 
     pangolin::XYRangef& GetViewToRender();
@@ -155,7 +153,6 @@ protected:
     int last_mouse_pos[2];
 
     bool use_nn;
-    bool flipTextureX;
     bool flipTextureY;
 };
 

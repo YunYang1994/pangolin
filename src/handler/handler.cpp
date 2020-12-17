@@ -95,7 +95,7 @@ void HandlerScroll::Mouse(View& d, MouseButton button, int x, int y, bool presse
     {
         if( button == MouseWheelUp) d.scroll_offset   -= 1;
         if( button == MouseWheelDown) d.scroll_offset += 1;
-        d.scroll_offset = std::max(0, std::min(d.scroll_offset, (int)d.NumVisibleChildren()-1) );
+        d.scroll_offset = std::max(0, std::min(d.scroll_offset, (int)d.views.size()) );
         d.ResizeChildren();
     }else{
         Handler::Mouse(d,button,x,y,pressed,button_state);
@@ -107,7 +107,7 @@ void HandlerScroll::Special(View& d, InputSpecial inType, float x, float y, floa
     if( inType == InputSpecialScroll )
     {
         d.scroll_offset -= (int)(p2 / fabs(p2));
-        d.scroll_offset = std::max(0, std::min(d.scroll_offset, (int)d.NumVisibleChildren()-1) );
+        d.scroll_offset = std::max(0, std::min(d.scroll_offset, (int)d.views.size()) );
         d.ResizeChildren();
     }else{
         Handler::Special(d,inType,x,y,p1,p2,p3,p4,button_state);
@@ -192,8 +192,7 @@ void Handler3D::Mouse(View& display, MouseButton button, int x, int y, bool pres
     
     GLprecision T_nc[3*4];
     LieSetIdentity(T_nc);
-
-    funcKeyState = 0;
+    
     if( pressed )
     {
         GetPosNormal(display,x,y,p,Pw,Pc,n,last_z);
@@ -217,8 +216,6 @@ void Handler3D::Mouse(View& display, MouseButton button, int x, int y, bool pres
             OpenGlMatrix& spec = cam_state->GetModelViewMatrix();
             LieMul4x4bySE3<>(spec.m,T_nc,spec.m);
         }
-
-        funcKeyState = button_state;
     }
 }
 
@@ -227,28 +224,10 @@ void Handler3D::MouseMotion(View& display, int x, int y, int button_state)
     const GLprecision rf = 0.01;
     const float delta[2] = { (float)x - last_pos[0], (float)y - last_pos[1] };
     const float mag = delta[0]*delta[0] + delta[1]*delta[1];
-
-    if((button_state & KeyModifierCtrl) && (button_state & KeyModifierShift))
-    {
-        GLprecision T_nc[3 * 4];
-        LieSetIdentity(T_nc);
-
-        GetPosNormal(display, x, y, p, Pw, Pc, n, last_z);
-        if(ValidWinDepth(p[2]))
-        {
-            last_z = p[2];
-            std::copy(Pc, Pc + 3, rot_center);
-        }
-
-        funcKeyState = button_state;
-    }
-    else
-    {
-        funcKeyState = 0;
-    }
-
+    
     // TODO: convert delta to degrees based of fov
     // TODO: make transformation with respect to cam spec
+    
     if( mag < 50.0f*50.0f )
     {
         OpenGlMatrix& mv = cam_state->GetModelViewMatrix();

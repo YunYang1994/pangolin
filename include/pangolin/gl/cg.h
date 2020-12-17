@@ -79,7 +79,7 @@ public:
     CgLoader();
     ~CgLoader();
     
-    // Call AFTER glewInit (or similar)
+    // Call AFTER glutInit (or similar)
     void Initialise();
     
     CgProgram LoadProgramFromFile(const std::string& file, const std::string& function, bool isVertexShader );

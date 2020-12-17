@@ -29,17 +29,13 @@
 #include <pangolin/display/display.h>
 #include <pangolin/display/device/PangolinNSApplication.h>
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
-#  define NSAnyEventMask NSEventMaskAny
-#endif
-
 ////////////////////////////////////////////////////////////////////
 // PangolinNSApplication
 ////////////////////////////////////////////////////////////////////
 
 @implementation PangolinNSApplication
 
-+ (void)run_pre
+- (void)run_pre
 {
     [[NSNotificationCenter defaultCenter]
         postNotificationName:NSApplicationWillFinishLaunchingNotification
@@ -49,18 +45,18 @@
         object:NSApp];
 }
 
-+ (void)run_step
+- (void)run_step
 {
     NSEvent *event;
     do{
-        event = [NSApp
+        event = [self
                 nextEventMatchingMask:NSAnyEventMask
                 untilDate:nil
 //                untilDate: [NSDate distantFuture]
                 inMode:NSDefaultRunLoopMode
                 dequeue:YES];
-        [NSApp sendEvent:event];
-        [NSApp updateWindows];
+        [self sendEvent:event];
+        [self updateWindows];
     }while(event != nil);
 }
 

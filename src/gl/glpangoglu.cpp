@@ -27,25 +27,15 @@
 
 #include <pangolin/gl/glpangoglu.h>
 #include <pangolin/utils/simple_math.h>
-#include <unordered_map>
 
 namespace pangolin {
 
-// https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetError.xhtml
-static const std::unordered_map<GLenum, std::string> gl_error_string = {
-    {GL_NO_ERROR, "GL_NO_ERROR: No error has been recorded."},
-    {GL_INVALID_ENUM, "GL_INVALID_ENUM: An unacceptable value is specified for an enumerated argument."},
-    {GL_INVALID_VALUE, "GL_INVALID_VALUE: A numeric argument is out of range."},
-    {GL_INVALID_OPERATION, "GL_INVALID_OPERATION: The specified operation is not allowed in the current state."},
-    {GL_INVALID_FRAMEBUFFER_OPERATION, "GL_INVALID_FRAMEBUFFER_OPERATION: The framebuffer object is not complete."},
-    {GL_OUT_OF_MEMORY, "GL_OUT_OF_MEMORY: There is not enough memory left to execute the command."},
-    {GL_STACK_UNDERFLOW, "GL_STACK_UNDERFLOW: An attempt has been made to perform an operation that would cause an internal stack to underflow."},
-    {GL_STACK_OVERFLOW, "GL_STACK_OVERFLOW: An attempt has been made to perform an operation that would cause an internal stack to overflow."},
-};
+const GLubyte gNotErrorLookup[] = "XX";
 
-const char* glErrorString(GLenum error)
+const GLubyte* glErrorString(GLenum /*error*/)
 {
-  return gl_error_string.count(error) ? gl_error_string.at(error).c_str() : nullptr;
+    // TODO: Implement glErrorString
+    return gNotErrorLookup;
 }
 
 // Based on glu implementation.

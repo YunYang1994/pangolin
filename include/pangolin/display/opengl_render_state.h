@@ -38,7 +38,6 @@
 
 #ifdef USE_EIGEN
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #endif
 
 #ifdef HAVE_TOON
@@ -111,15 +110,9 @@ struct PANGOLIN_EXPORT OpenGlMatrix {
 #ifdef USE_EIGEN
     template<typename P>
     OpenGlMatrix(const Eigen::Matrix<P,4,4>& mat);
-
-    template<typename P>
-    OpenGlMatrix(const Eigen::Transform<P,3,Eigen::Affine>& mat) : OpenGlMatrix(mat.matrix()) { }
     
     template<typename P>
     operator Eigen::Matrix<P,4,4>() const;
-
-    template<typename P>
-    operator Eigen::Transform<P,3,Eigen::Affine>() const;
 #endif // USE_EIGEN
 
 #ifdef HAVE_TOON
@@ -223,19 +216,11 @@ PANGOLIN_EXPORT
 OpenGlMatrixSpec ProjectionMatrixRUB_BottomLeft(int w, int h, GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0, GLprecision zNear, GLprecision zFar );
 
 PANGOLIN_EXPORT
-OpenGlMatrixSpec ProjectionMatrixRUB_TopLeft(int w, int h, GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0, GLprecision zNear, GLprecision zFar );
-
-PANGOLIN_EXPORT
 OpenGlMatrixSpec ProjectionMatrixRDF_TopLeft(int w, int h, GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0, GLprecision zNear, GLprecision zFar );
-
-PANGOLIN_EXPORT
-OpenGlMatrixSpec ProjectionMatrixRDF_TopRight(int w, int h, GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0, GLprecision zNear, GLprecision zFar );
 
 PANGOLIN_EXPORT
 OpenGlMatrixSpec ProjectionMatrixRDF_BottomLeft(int w, int h, GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0, GLprecision zNear, GLprecision zFar );
 
-PANGOLIN_EXPORT
-OpenGlMatrixSpec ProjectionMatrixRDF_BottomRight(int w, int h, GLprecision fu, GLprecision fv, GLprecision u0, GLprecision v0, GLprecision zNear, GLprecision zFar );
 
 //! Use OpenGl's default frame RUB_BottomLeft
 PANGOLIN_EXPORT
@@ -316,12 +301,6 @@ template<typename P>
 OpenGlMatrix::operator Eigen::Matrix<P,4,4>() const
 {
     return ToEigen<P>(*this);
-}
-
-template<typename P>
-OpenGlMatrix::operator Eigen::Transform<P,3,Eigen::Affine>() const
-{
-    return Eigen::Transform<P,3,Eigen::Affine>(ToEigen<P>(*this));
 }
 
 template<typename P> inline

@@ -28,7 +28,7 @@
 #include <pangolin/platform.h>
 
 #ifdef HAVE_PYTHON
-#include <pangolin/python/pyinterpreter.h>
+#include <pangolin/python/PyInterpreter.h>
 #include <pangolin/console/ConsoleView.h>
 #endif // HAVE_PYTHON
 
@@ -37,11 +37,9 @@
 #include <string>
 #include <map>
 #include <mutex>
-#include <cstdlib>
 
-#include <pangolin/factory/factory_registry.h>
-#include <pangolin/window_frameworks.h>
 #include <pangolin/gl/glinclude.h>
+#include <pangolin/gl/glglut.h>
 #include <pangolin/gl/gldraw.h>
 #include <pangolin/display/display.h>
 #include <pangolin/display/display_internal.h>
@@ -74,8 +72,7 @@ typedef std::map<std::string,std::shared_ptr<PangolinGl> > ContextMap;
 
 // Map of active contexts
 ContextMap contexts;
-std::recursive_mutex contexts_mutex;
-bool one_time_window_frameworks_init = false;
+std::mutex contexts_mutex;
 
 // Context active for current thread
 __thread PangolinGl* context = 0;
@@ -94,9 +91,9 @@ PangolinGl::PangolinGl()
 PangolinGl::~PangolinGl()
 {
     // Free displays owned by named_managed_views
-    for(ViewMap::iterator iv = named_managed_views.begin(); iv != named_managed_views.end(); ++iv) {
-        delete iv->second;
-    }
+    //for(ViewMap::iterator iv = named_managed_views.begin(); iv != named_managed_views.end(); ++iv) {
+    //    delete iv->second;
+    //}
     named_managed_views.clear();
 }
 
@@ -114,54 +111,7 @@ PangolinGl *FindContext(const std::string& name)
     return context;
 }
 
-WindowInterface& CreateWindowAndBind(std::string window_title, int w, int h, const Params& params)
-{
-    std::unique_lock<std::recursive_mutex> l(contexts_mutex);
-
-    if(!one_time_window_frameworks_init) {
-        one_time_window_frameworks_init = LoadBuiltInWindowFrameworks();
-    }
-
-    pangolin::Uri win_uri;
-
-    if(const char* extra_params = std::getenv("PANGOLIN_WINDOW_URI"))
-    {
-        // Take any defaults from the environment
-        win_uri = pangolin::ParseUri(extra_params);
-    }else{
-        // Otherwise revert to 'default' scheme.
-        win_uri.scheme = "default";
-    }
-
-    // Allow params to override
-    win_uri.scheme = params.Get("scheme", win_uri.scheme);
-
-    // Override with anything the program specified
-    win_uri.params.insert(std::end(win_uri.params), std::begin(params.params), std::end(params.params));
-    win_uri.Set("w", w);
-    win_uri.Set("h", h);
-    win_uri.Set("window_title", window_title);
-
-    std::unique_ptr<WindowInterface> window = FactoryRegistry<WindowInterface>::I().Open(win_uri);
-
-    // We're expecting not only a WindowInterface, but a PangolinGl.
-    if(!window || !dynamic_cast<PangolinGl*>(window.get())) {
-        throw WindowExceptionNoKnownHandler(win_uri.scheme);
-    }
-
-    std::shared_ptr<PangolinGl> context(dynamic_cast<PangolinGl*>(window.release()));
-    RegisterNewContext(window_title, context );
-    // is_high_res will alter default font size and a few other gui elements.
-    context->is_high_res = win_uri.Get(PARAM_HIGHRES,false);
-    context->MakeCurrent();
-    context->ProcessEvents();
-    glewInit();
-
-    return *context;
-}
-
-// Assumption: unique lock is held on contexts_mutex for multi-threaded operation
-void RegisterNewContext(const std::string& name, std::shared_ptr<PangolinGl> newcontext)
+void AddNewContext(const std::string& name, std::shared_ptr<PangolinGl> newcontext)
 {
     // Set defaults
     newcontext->base.left = 0.0;
@@ -173,18 +123,28 @@ void RegisterNewContext(const std::string& name, std::shared_ptr<PangolinGl> new
     newcontext->is_fullscreen = false;
 
     // Create and add
+    contexts_mutex.lock();
     if( contexts.find(name) != contexts.end() ) {
+        contexts_mutex.unlock();
         throw std::runtime_error("Context already exists.");
     }
     contexts[name] = newcontext;
+    contexts_mutex.unlock();
 
     // Process the following as if this context is now current.
     PangolinGl *oldContext = context;
     context = newcontext.get();
+#ifdef HAVE_GLUT
+    process::Resize(
+                glutGet(GLUT_WINDOW_WIDTH),
+                glutGet(GLUT_WINDOW_HEIGHT)
+                );
+#else
     process::Resize(
         newcontext->windowed_size[0],
         newcontext->windowed_size[1]
     );
+#endif //HAVE_GLUT
 
     // Default key bindings can be overridden
     RegisterKeyPressCallback(PANGO_KEY_ESCAPE, Quit );
@@ -216,8 +176,6 @@ void DestroyWindow(const std::string& name)
 
 WindowInterface& BindToContext(std::string name)
 {
-    std::unique_lock<std::recursive_mutex> l(contexts_mutex);
-
     // N.B. context is modified prior to invoking MakeCurrent so that
     // state management callbacks (such as Resize()) can be correctly
     // processed.
@@ -225,7 +183,8 @@ WindowInterface& BindToContext(std::string name)
     if( !context_to_bind )
     {
         std::shared_ptr<PangolinGl> newcontext(new PangolinGl());
-        RegisterNewContext(name, newcontext);
+        AddNewContext(name, newcontext);
+        newcontext->MakeCurrent();
         return *(newcontext.get());
     }else{
         context_to_bind->MakeCurrent();
@@ -313,7 +272,7 @@ void PostRender()
         context->screen_capture.pop();
         SaveFramebuffer(fv.first, fv.second);
     }
-
+    
 #ifdef BUILD_PANGOLIN_VIDEO
     if(context->recorder.IsOpen()) {
         SaveFramebuffer(context->recorder, context->record_view->GetBounds() );
@@ -400,7 +359,7 @@ void SaveFramebuffer(std::string prefix, const Viewport& v)
 {
     PANGOLIN_UNUSED(prefix);
     PANGOLIN_UNUSED(v);
-
+    
 #ifndef HAVE_GLES
 
 #ifdef HAVE_PNG
@@ -411,14 +370,14 @@ void SaveFramebuffer(std::string prefix, const Viewport& v)
     glReadPixels(v.l, v.b, v.w, v.h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.ptr );
     SaveImage(buffer, fmt, prefix + ".png", false);
 #endif // HAVE_PNG
-
+    
 #endif // HAVE_GLES
 }
 
 #ifdef BUILD_PANGOLIN_VIDEO
 void SaveFramebuffer(VideoOutput& video, const Viewport& v)
 {
-#ifndef HAVE_GLES
+#ifndef HAVE_GLES    
     const StreamInfo& si = video.Streams()[0];
     if(video.Streams().size()==0 || (int)si.Width() != v.w || (int)si.Height() != v.h) {
         video.Close();
@@ -428,7 +387,7 @@ void SaveFramebuffer(VideoOutput& video, const Viewport& v)
     static basetime last_time = TimeNow();
     const basetime time_now = TimeNow();
     last_time = time_now;
-
+    
     static std::vector<unsigned char> img;
     img.resize(v.w*v.h*4);
 
@@ -450,7 +409,7 @@ void Keyboard( unsigned char key, int x, int y)
 {
     // Force coords to match OpenGl Window Coords
     y = context->base.v.h - y;
-
+    
 #ifdef HAVE_APPLE_OPENGL_FRAMEWORK
     // Switch backspace and delete for OSX!
     if(key== '\b') {
@@ -464,7 +423,7 @@ void Keyboard( unsigned char key, int x, int y)
 
     // Check if global key hook exists
     const KeyhookMap::iterator hook = context->keypress_hooks.find(key);
-
+    
 #ifdef HAVE_PYTHON
     // Console receives all input when it is open
     if( context->console_view && context->console_view->IsShown() ) {
@@ -482,7 +441,7 @@ void KeyboardUp(unsigned char key, int x, int y)
 {
     // Force coords to match OpenGl Window Coords
     y = context->base.v.h - y;
-
+    
     if(context->activeDisplay && context->activeDisplay->handler)
     {
         context->activeDisplay->handler->Keyboard(*(context->activeDisplay),key,x,y,false);
@@ -504,28 +463,31 @@ void Mouse( int button_raw, int state, int x, int y)
 {
     // Force coords to match OpenGl Window Coords
     y = context->base.v.h - y;
-
+    
     last_x = (float)x;
     last_y = (float)y;
 
     const MouseButton button = (MouseButton)(1 << (button_raw & 0xf) );
     const bool pressed = (state == 0);
-
+    
     context->had_input = context->is_double_buffered ? 2 : 1;
-
+    
     const bool fresh_input = ( (context->mouse_state & 7) == 0);
-
+    
     if( pressed ) {
         context->mouse_state |= (button&7);
     }else{
         context->mouse_state &= ~(button&7);
     }
-
-#if defined(_WIN_)
+    
+#ifdef HAVE_GLUT
+    context->mouse_state &= 0x0000ffff;
+    context->mouse_state |= glutGetModifiers() << 16;
+#elif defined(_WIN_)
     context->mouse_state &= 0x0000ffff;
     context->mouse_state |= (button_raw >> 4) << 16;
 #endif
-
+    
     if(fresh_input) {
         context->base.handler->Mouse(context->base,button,x,y,pressed,context->mouse_state);
     }else if(context->activeDisplay && context->activeDisplay->handler) {
@@ -537,12 +499,12 @@ void MouseMotion( int x, int y)
 {
     // Force coords to match OpenGl Window Coords
     y = context->base.v.h - y;
-
+    
     last_x = (float)x;
     last_y = (float)y;
-
+    
     context->had_input = context->is_double_buffered ? 2 : 1;
-
+    
     if( context->activeDisplay)
     {
         if( context->activeDisplay->handler )
@@ -556,9 +518,9 @@ void PassiveMouseMotion(int x, int y)
 {
     // Force coords to match OpenGl Window Coords
     y = context->base.v.h - y;
-
+    
     context->base.handler->PassiveMouseMotion(context->base,x,y,context->mouse_state);
-
+    
     last_x = (float)x;
     last_y = (float)y;
 }
@@ -587,9 +549,9 @@ void SpecialInput(InputSpecial inType, float x, float y, float p1, float p2, flo
     // Assume coords already match OpenGl Window Coords
 
     context->had_input = context->is_double_buffered ? 2 : 1;
-
+    
     const bool fresh_input = (context->mouse_state == 0);
-
+    
     if(fresh_input) {
         context->base.handler->Special(context->base,inType,x,y,p1,p2,p3,p4,context->mouse_state);
     }else if(context->activeDisplay && context->activeDisplay->handler) {
@@ -599,16 +561,31 @@ void SpecialInput(InputSpecial inType, float x, float y, float p1, float p2, flo
 
 void Scroll(float x, float y)
 {
+#ifdef HAVE_GLUT
+    context->mouse_state &= 0x0000ffff;
+    context->mouse_state |= glutGetModifiers() << 16;
+#endif    
+    
     SpecialInput(InputSpecialScroll, last_x, last_y, x, y, 0, 0);
 }
 
 void Zoom(float m)
 {
+#ifdef HAVE_GLUT
+    context->mouse_state &= 0x0000ffff;
+    context->mouse_state |= glutGetModifiers() << 16;
+#endif    
+    
     SpecialInput(InputSpecialZoom, last_x, last_y, m, 0, 0, 0);
 }
 
 void Rotate(float r)
 {
+#ifdef HAVE_GLUT
+    context->mouse_state &= 0x0000ffff;
+    context->mouse_state |= glutGetModifiers() << 16;
+#endif    
+    
     SpecialInput(InputSpecialRotate, last_x, last_y, r, 0, 0, 0);
 }
 
@@ -625,15 +602,15 @@ void DrawTextureToViewport(GLuint texid)
     OpenGlRenderState::ApplyIdentity();
     glBindTexture(GL_TEXTURE_2D, texid);
     glEnable(GL_TEXTURE_2D);
-
+    
     GLfloat sq_vert[] = { -1,-1,  1,-1,  1, 1,  -1, 1 };
     glVertexPointer(2, GL_FLOAT, 0, sq_vert);
-    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);   
 
     GLfloat sq_tex[]  = { 0,0,  1,0,  1,1,  0,1  };
     glTexCoordPointer(2, GL_FLOAT, 0, sq_tex);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
+         
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
     glDisableClientState(GL_VERTEX_ARRAY);

@@ -41,7 +41,6 @@ struct FactoryInterface
 {
     typedef T FactoryItem;
 
-    virtual ~FactoryInterface() = default;
     virtual std::unique_ptr<T> Open(const Uri& uri) = 0;
 };
 

@@ -128,11 +128,6 @@ bool ThreadVideo::DropNFrames(uint32_t n)
 bool ThreadVideo::GrabNext( unsigned char* image, bool wait )
 {
     TSTART()
-
-    if(queue.EmptyBuffers() == 0) {
-       pango_print_warn("Thread %12p has run out of %d buffers\n", this, (int)queue.AvailableFrames());
-    }
-
     if(queue.AvailableFrames() == 0 && !wait) {
         // No frames available, no wait, simply return false.
         DBGPRINT("GrabNext no available frames no wait.");
@@ -143,10 +138,7 @@ bool ThreadVideo::GrabNext( unsigned char* image, bool wait )
             std::unique_lock<std::mutex> lk(cvMtx);
             DBGPRINT("GrabNext no available frames wait for notification.");
             if(cv.wait_for(lk, std::chrono::milliseconds(capture_timout_ms)) == std::cv_status::timeout)
-            {
-                pango_print_warn("ThreadVideo: GrabNext blocking read for frames reached timeout.");
-                return false;
-            }
+                throw std::runtime_error("ThreadVideo: GrabNext blocking read for frames reached timeout.");
         }
 
         // At least one valid frame in queue, return it.
@@ -179,10 +171,7 @@ bool ThreadVideo::GrabNewest( unsigned char* image, bool wait )
             std::unique_lock<std::mutex> lk(cvMtx);
             DBGPRINT("GrabNewest no available frames wait for notification.");
             if(cv.wait_for(lk, std::chrono::milliseconds(capture_timout_ms)) == std::cv_status::timeout)
-            {
-                pango_print_warn("ThreadVideo: GrabNext blocking read for frames reached timeout.");
-                return false;
-            }
+                throw std::runtime_error("ThreadVideo: GrabNext blocking read for frames reached timeout.");
         }
 
         // At least one valid frame in queue, return it.
@@ -212,17 +201,7 @@ void ThreadVideo::operator()()
             GrabResult grab = queue.getFreeBuffer();
 
             // Blocking grab (i.e. GrabNext with wait = true).
-            try{
-                grab.return_status = videoin[0]->GrabNext(grab.buffer.get(), true);
-            }catch(const VideoException& e) {
-                // User doesn't have the opportunity to catch exceptions here.
-                pango_print_warn("ThreadVideo caught VideoException (%s)\n",  e.what());
-                grab.return_status = false;
-            }catch(const std::exception& e){
-                // User doesn't have the opportunity to catch exceptions here.
-                pango_print_warn("ThreadVideo caught exception (%s)\n", e.what());
-                grab.return_status = false;
-            }
+            grab.return_status = videoin[0]->GrabNext(grab.buffer.get(), true);
 
             if(grab.return_status){
                 grab.frame_properties = GetVideoFrameProperties(videoin[0]);
@@ -251,7 +230,7 @@ std::vector<VideoInterface*>& ThreadVideo::InputStreams()
 
 PANGOLIN_REGISTER_FACTORY(ThreadVideo)
 {
-    struct ThreadVideoFactory final : public FactoryInterface<VideoInterface> {
+    struct ThreadVideoFactory : public FactoryInterface<VideoInterface> {
         std::unique_ptr<VideoInterface> Open(const Uri& uri) override {
             std::unique_ptr<VideoInterface> subvid = pangolin::OpenVideo(uri.url);
             const int num_buffers = uri.Get<int>("num_buffers", 30);

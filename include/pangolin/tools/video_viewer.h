@@ -1,5 +1,3 @@
-#pragma once
-
 #include <pangolin/display/window.h>
 #include <pangolin/platform.h>
 #include <pangolin/video/video_input.h>
@@ -55,8 +53,8 @@ public:
     void SetDiscardBufferedFrames(bool new_state);
     void SetWaitForFrames(bool new_state);
     void Skip(int frames);
-    bool ChangeExposure(int delta_us);
-    bool ChangeGain(float delta);
+    void ChangeExposure(int delta_us);
+    void ChangeGain(float delta);
     void SetActiveCamera(int delta);
     void DrawEveryNFrames(int n);
 

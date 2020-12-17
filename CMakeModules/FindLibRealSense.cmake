@@ -16,8 +16,9 @@ if(${CMAKE_VERSION} VERSION_LESS 2.8.2)
 endif()
 
 #add a hint so that it can find it without the pkg-config
-find_path(LIBREALSENSE_INCLUDE_DIR librealsense/rs.h
-    HINTS /usr/include/  /usr/local/include)
+find_path(LIBREALSENSE_INCLUDE_DIR rs.h
+    HINTS /usr/include/  /usr/local/include
+    PATH_SUFFIXES librealsense)
 #add a hint so that it can find it without the pkg-config
 find_library(LIBREALSENSE_LIBRARY
     NAMES librealsense.so

@@ -136,7 +136,7 @@ bool PangoVideo::GrabNewest( unsigned char* image, bool wait )
 
 size_t PangoVideo::GetCurrentFrameId() const
 {
-    return (int)(_reader->Sources()[_src_id].next_packet_id) - 1;
+    return (int)(_reader->Sources()[_src_id].next_packet_id);
 }
 
 size_t PangoVideo::GetTotalFrames() const
@@ -154,11 +154,6 @@ size_t PangoVideo::Seek(size_t next_frame_id)
     }else{
         return _source->next_packet_id;
     }
-}
-
-std::string PangoVideo::GetSourceUri()
-{
-    return _source_uri;
 }
 
 int PangoVideo::FindPacketStreamSource()
@@ -179,7 +174,6 @@ void PangoVideo::SetupStreams(const PacketStreamSource& src)
     // Read sources header
     _fixed_size = src.data_size_bytes != 0;
     _size_bytes = src.data_size_bytes;
-    _source_uri = src.uri;
 
     _device_properties = src.info["device"];
     const picojson::value& json_streams = src.info["streams"];
@@ -201,12 +195,8 @@ void PangoVideo::SetupStreams(const PacketStreamSource& src)
             stream_decoder.push_back(nullptr);
         }
 
-        PixelFormat fmt = PixelFormatFromString(encoding);
-
-        fmt.channel_bit_depth = json_stream.get_value<int64_t>("channel_bit_depth", 0);
-
         StreamInfo si(
-                fmt,
+                PixelFormatFromString(encoding),
                 json_stream["width"].get<int64_t>(),
                 json_stream["height"].get<int64_t>(),
                 json_stream["pitch"].get<int64_t>(),
@@ -216,7 +206,6 @@ void PangoVideo::SetupStreams(const PacketStreamSource& src)
         if(!_fixed_size) {
             _size_bytes += si.SizeBytes();
         }
-
 
         _streams.push_back(si);
     }

@@ -14,7 +14,7 @@ namespace pangolin {
 struct zstd_image_header
 {
     char magic[4];
-    char fmt[16];
+    char fmt[8];
     size_t w, h;
 };
 #pragma pack(pop)

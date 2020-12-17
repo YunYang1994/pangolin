@@ -112,7 +112,7 @@ inline std::istream& operator>> (std::istream &is, Image<unsigned char>& img)
 {
     size_t offset;
     is >> offset; is.get();
-    img.ptr = (unsigned char*)(offset);
+    img.ptr = (unsigned char*)0 + offset;
     is >> img.w; is.get();
     is >> img.h; is.get();
     is >> img.pitch;

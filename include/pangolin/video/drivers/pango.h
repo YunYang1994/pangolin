@@ -74,8 +74,6 @@ public:
 
     size_t Seek(size_t frameid) override;
 
-    std::string GetSourceUri();
-
 private:
     void HandlePipeClosed();
 
@@ -96,7 +94,6 @@ protected:
     std::vector<ImageDecoderFunc> stream_decoder;
     picojson::value _device_properties;
     picojson::value _frame_properties;
-    std::string _source_uri;
 
     Registration<size_t> session_seek;
 };

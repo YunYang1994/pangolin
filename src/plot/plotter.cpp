@@ -210,6 +210,9 @@ Plotter::Plotter(
       linked_plotter_x(linked_plotter_x),
       linked_plotter_y(linked_plotter_y)
 {
+    if(!log) {
+        throw std::runtime_error("DataLog not specified");
+    }
     // Prevent links to ourselves - this could cause infinite recursion.
     if(linked_plotter_x == this) this->linked_plotter_x = 0;
     if(linked_plotter_y == this) this->linked_plotter_y = 0;
@@ -284,7 +287,7 @@ Plotter::Plotter(
     for(unsigned int i=0; i< 10; ++i) {
         std::ostringstream ss;
         ss << "$" << i;
-        if(log) AddSeries("$i", ss.str());
+        AddSeries("$i", ss.str());
     }
 
     // Setup test PlotMarkers
@@ -829,8 +832,6 @@ void Plotter::SetView(const XYRangef& range)
 
     px.rview.x = range.x;
     py.rview.y = range.y;
-    px.target.x = range.x;
-    py.target.y = range.y;
 }
 
 void Plotter::SetViewSmooth(const XYRangef &range)
@@ -1163,9 +1164,5 @@ void Plotter::ClearMarkers()
     plotmarkers.clear();
 }
 
-void Plotter::ResetColourWheel()
-{
-    colour_wheel.Reset();
-}
 
 }

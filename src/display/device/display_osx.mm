@@ -1,7 +1,7 @@
 /* This file is part of the Pangolin Project.
  * http://github.com/stevenlovegrove/Pangolin
  *
- * Copyright (c) 2011-2018 Steven Lovegrove, Andrey Mnatsakanov
+ * Copyright (c) 2011 Steven Lovegrove
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -25,10 +25,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-// Silence all the OSX GL deprecation messages.
-#define GL_SILENCE_DEPRECATION
-
-#include <pangolin/factory/factory_registry.h>
 #include <pangolin/platform.h>
 #include <pangolin/gl/glinclude.h>
 #include <pangolin/display/display.h>
@@ -36,15 +32,6 @@
 #include <pangolin/display/device/OsxWindow.h>
 #include <pangolin/display/device/PangolinNSGLView.h>
 #include <pangolin/display/device/PangolinNSApplication.h>
-#include <memory>
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
-#  define NSFullScreenWindowMask      NSWindowStyleMaskFullScreen
-#  define NSTitledWindowMask          NSWindowStyleMaskTitled
-#  define NSMiniaturizableWindowMask  NSWindowStyleMaskMiniaturizable
-#  define NSResizableWindowMask       NSWindowStyleMaskResizable
-#  define NSClosableWindowMask        NSWindowStyleMaskClosable
-#endif
 
 // Hack to fix window focus issue
 // http://www.miscdebris.net/blog/2010/03/30/solution-for-my-mac-os-x-gui-program-doesnt-get-focus-if-its-outside-an-application-bundle/
@@ -62,15 +49,23 @@ inline void FixOsxFocus()
 
 namespace pangolin
 {
-
 extern __thread PangolinGl* context;
+}
 
-std::unique_ptr<WindowInterface> CreateOsxWindowAndBind(std::string window_title, int w, int h, const bool is_highres)
+namespace pangolin
 {
+
+WindowInterface& CreateWindowAndBind(std::string window_title, int w, int h, const Params& params )
+{
+    const bool is_highres = params.Get<bool>(PARAM_HIGHRES, true);
 
     OsxWindow* win = new OsxWindow(window_title, w, h, is_highres);
 
-    return std::unique_ptr<WindowInterface>(win);
+    // Add to context map
+    AddNewContext(window_title, std::shared_ptr<PangolinGl>(win) );
+    context->is_high_res = is_highres;
+
+    return *context;
 }
 
 OsxWindow::OsxWindow(
@@ -90,14 +85,14 @@ OsxWindow::OsxWindow(
     // Make sure Application is initialised correctly.
     // This can be run repeatedly.
 
-    [NSApplication sharedApplication];
+    NSApp = [PangolinNSApplication sharedApplication];
     PangolinAppDelegate *delegate = [[PangolinAppDelegate alloc] init];
 
-    [NSApp setDelegate:delegate];
-    [NSApp setPresentationOptions:NSFullScreenWindowMask];
+    [[PangolinNSApplication sharedApplication] setDelegate:delegate];
+    [[PangolinNSApplication sharedApplication] setPresentationOptions:NSFullScreenWindowMask];
 
-    [PangolinNSApplication run_pre];
-    [PangolinNSApplication run_step];
+    [NSApp run_pre];
+    [NSApp run_step];
 
     ///////////////////////////////////////////////////////////////////////
     // Create Window
@@ -156,7 +151,7 @@ OsxWindow::OsxWindow(
 
     [_window setContentView:view];
 
-    [PangolinNSApplication run_step];
+    [NSApp run_step];
 
     glewInit();
 
@@ -205,12 +200,6 @@ void OsxWindow::Resize(unsigned int w, unsigned int h)
 void OsxWindow::MakeCurrent()
 {
     [[view openGLContext] makeCurrentContext];
-    context = this;
-}
-
-void OsxWindow::RemoveCurrent()
-{
-    [NSOpenGLContext clearCurrentContext];
 }
 
 void OsxWindow::SwapBuffers()
@@ -222,28 +211,7 @@ void OsxWindow::SwapBuffers()
 
 void OsxWindow::ProcessEvents()
 {
-    [PangolinNSApplication run_step];
+    [NSApp run_step];
 }
-
-PANGOLIN_REGISTER_FACTORY(OsxWindow)
-{
-  struct OsxWindowFactory : public FactoryInterface<WindowInterface> {
-    std::unique_ptr<WindowInterface> Open(const Uri& uri) override {
-
-      const std::string window_title = uri.Get<std::string>("window_title", "window");
-      const int w = uri.Get<int>("w", 640);
-      const int h = uri.Get<int>("h", 480);
-      const bool is_highres = uri.Get<bool>(PARAM_HIGHRES, false);
-      return std::unique_ptr<WindowInterface>(CreateOsxWindowAndBind(window_title, w, h, is_highres));
-    }
-  };
-
-  auto factory = std::make_shared<OsxWindowFactory>();
-  FactoryRegistry<WindowInterface>::I().RegisterFactory(factory, 10, "cocoa");
-  FactoryRegistry<WindowInterface>::I().RegisterFactory(factory, 100,  "default");
-
-}
-
-
 
 }

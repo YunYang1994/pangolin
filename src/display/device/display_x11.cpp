@@ -1,7 +1,7 @@
 /* This file is part of the Pangolin Project.
  * http://github.com/stevenlovegrove/Pangolin
  *
- * Copyright (c) 2011-2018 Steven Lovegrove, Andrey Mnatsakanov
+ * Copyright (c) 2011 Steven Lovegrove
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -29,9 +29,9 @@
 // Code based on public domain sample at
 // https://www.opengl.org/wiki/Tutorial:_OpenGL_3.0_Context_Creation_%28GLX%29
 
-#include <pangolin/factory/factory_registry.h>
 #include <pangolin/platform.h>
 #include <pangolin/gl/glinclude.h>
+#include <pangolin/gl/glglut.h>
 #include <pangolin/display/display.h>
 #include <pangolin/display/display_internal.h>
 #include <pangolin/display/window.h>
@@ -49,7 +49,6 @@
 
 namespace pangolin
 {
-
 extern __thread PangolinGl* context;
 
 std::mutex window_mutex;
@@ -321,11 +320,6 @@ void X11Window::MakeCurrent()
     MakeCurrent(glcontext ? glcontext->glcontext : global_gl_context.lock()->glcontext);
 }
 
-void X11Window::RemoveCurrent()
-{
-    glXMakeCurrent(display->display, 0, nullptr);
-}
-
 void X11Window::ToggleFullscreen()
 {
     const Atom _NET_WM_STATE_FULLSCREEN = XInternAtom(display->display, "_NET_WM_STATE_FULLSCREEN", True);
@@ -374,9 +368,10 @@ void X11Window::ProcessEvents()
         case ButtonRelease:
         {
             const int button = ev.xbutton.button-1;
+            const int mask = Button1Mask << button;
             pangolin::process::Mouse(
                 button,
-                ev.xbutton.type == ButtonRelease,
+                ev.xbutton.state & mask,
                 ev.xbutton.x, ev.xbutton.y
             );
             break;
@@ -479,8 +474,13 @@ void X11Window::SwapBuffers() {
     glXSwapBuffers(display->display, win);
 }
 
-std::unique_ptr<WindowInterface> CreateX11WindowAndBind(const std::string& window_title, const int w, const int h, const std::string& display_name, const bool double_buffered, const int  sample_buffers, const int  samples)
+WindowInterface& CreateWindowAndBind(std::string window_title, int w, int h, const Params &params)
 {
+    const std::string display_name = params.Get(PARAM_DISPLAYNAME, std::string());
+    const bool double_buffered = params.Get(PARAM_DOUBLEBUFFER, true);
+    const int  sample_buffers  = params.Get(PARAM_SAMPLE_BUFFERS, 1);
+    const int  samples         = params.Get(PARAM_SAMPLES, 1);
+
     std::shared_ptr<X11Display> newdisplay = std::make_shared<X11Display>(display_name.empty() ? NULL : display_name.c_str() );
     if (!newdisplay) {
         throw std::runtime_error("Pangolin X11: Failed to open X display");
@@ -501,29 +501,15 @@ std::unique_ptr<WindowInterface> CreateX11WindowAndBind(const std::string& windo
     win->glcontext = newglcontext;
     win->is_double_buffered = double_buffered;
 
-    return std::unique_ptr<WindowInterface>(win);
-}
+    // Add to context map
+    AddNewContext(window_title, std::shared_ptr<PangolinGl>(win) );
+    BindToContext(window_title);
+    glewInit();
 
-PANGOLIN_REGISTER_FACTORY(X11Window)
-{
-  struct X11WindowFactory : public FactoryInterface<WindowInterface> {
-    std::unique_ptr<WindowInterface> Open(const Uri& uri) override {
-          
-      const std::string window_title = uri.Get<std::string>("window_title", "window");
-      const int w = uri.Get<int>("w", 640);
-      const int h = uri.Get<int>("h", 480);
-      const std::string display_name = uri.Get<std::string>("display_name", "");
-      const bool double_buffered = uri.Get<bool>("double_buffered", true);
-      const int sample_buffers = uri.Get<int>("sample_buffers", 1);
-      const int samples = uri.Get<int>("samples", 1);
-      return std::unique_ptr<WindowInterface>(CreateX11WindowAndBind(window_title, w, h, display_name, double_buffered, sample_buffers, samples));
-    }
-  };
+    // Process window events
+    context->ProcessEvents();
 
-    auto factory = std::make_shared<X11WindowFactory>();
-    FactoryRegistry<WindowInterface>::I().RegisterFactory(factory, 10, "x11");
-    FactoryRegistry<WindowInterface>::I().RegisterFactory(factory, 10, "linux");
-    FactoryRegistry<WindowInterface>::I().RegisterFactory(factory, 100,  "default");
+    return *context;
 }
 
 }
