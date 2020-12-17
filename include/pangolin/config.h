@@ -23,7 +23,7 @@
 /* #undef HAVE_TOON */
 
 /* #undef HAVE_DC1394 */
-#define HAVE_V4L
+/* #undef HAVE_V4L */
 /* #undef HAVE_OPENNI */
 /* #undef HAVE_LIBREALSENSE */
 /* #undef HAVE_OPENNI2 */
@@ -50,21 +50,21 @@
 
 #define HAVE_PNG
 #define HAVE_JPEG
-/* #undef HAVE_TIFF */
-/* #undef HAVE_OPENEXR */
+#define HAVE_TIFF
+#define HAVE_OPENEXR
 /* #undef HAVE_ZSTD */
 
 /// Platform
 #define _UNIX_
 /* #undef _WIN_ */
-/* #undef _OSX_ */
-#define _LINUX_
+#define _OSX_
+/* #undef _LINUX_ */
 /* #undef _ANDROID_ */
 /* #undef _IOS_ */
 
 /// Compiler
-#define _GCC_
-/* #undef _CLANG_ */
+/* #undef _GCC_ */
+#define _CLANG_
 /* #undef _MSVC_ */
 
 #if (__cplusplus > 199711L) || (_MSC_VER >= 1800)
