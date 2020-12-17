@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 project("Pangolin")
+add_definitions(-w)
 set(PANGOLIN_VERSION_MAJOR 0)
 set(PANGOLIN_VERSION_MINOR 5)
 set(PANGOLIN_VERSION ${PANGOLIN_VERSION_MAJOR}.${PANGOLIN_VERSION_MINOR})

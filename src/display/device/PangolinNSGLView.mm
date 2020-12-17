@@ -71,12 +71,7 @@ int mapKeymap(int osx_key)
 
 -(void)reshape
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7
-    if ( [self wantsBestResolutionOpenGLSurface] && [ _window respondsToSelector:@selector(backingScaleFactor) ] )
-        backing_scale = [_window backingScaleFactor];
-    else
-#endif
-        backing_scale = 1.0;
+    backing_scale = 1.0;
 
     pangolin::process::Resize(self.bounds.size.width * backing_scale, self.bounds.size.height * backing_scale);
 

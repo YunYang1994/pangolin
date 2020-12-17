@@ -20,7 +20,6 @@ Pangolin uses the CMake portable pre-build tool. To checkout and build pangolin 
 ```bashrc
 $ git clone https://github.com/YunYang1994/pangolin.git
 $ cd pangolin
-$ git submodule init && git submodule update             # for pybind11
 $ mkdir build && cd build 
 $ cmake ..
 $ make -j8
